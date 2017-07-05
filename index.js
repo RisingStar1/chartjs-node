@@ -69,9 +69,10 @@ class ChartjsNode {
                 };
 
                 const Chartjs = require('chart.js');
-                if (configuration.options.plugins) {
-                    Chartjs.pluginService.register(configuration.options.plugins);
-                }
+                // if (configuration.options.plugins) {
+                //     Chartjs.pluginService.register(configuration.options.plugins);
+                // }
+                Chartjs.pluginService.register(gradientFillPlugin);
 
                 this._disableDynamicChartjsSettings(configuration);
                 this._canvas = BbPromise.promisifyAll(window.document.getElementById('myChart'));
@@ -90,18 +91,18 @@ class ChartjsNode {
      */
     getImageStream(imageType) {
         return this.getImageBuffer(imageType)
-        .then(buffer => {
-            var readableStream = new streamBuffers.ReadableStreamBuffer({
-                frequency: 10,       // in milliseconds.
-                chunkSize: 2048     // in bytes.
+            .then(buffer => {
+                var readableStream = new streamBuffers.ReadableStreamBuffer({
+                    frequency: 10,       // in milliseconds.
+                    chunkSize: 2048     // in bytes.
+                });
+                readableStream.put(buffer);
+                readableStream.stop();
+                return {
+                    stream: readableStream,
+                    length: buffer.length
+                };
             });
-            readableStream.put(buffer);
-            readableStream.stop();
-            return {
-                stream: readableStream,
-                length: buffer.length
-            };
-        });
     }
     /**
      * Retrives the drawn chart as a buffer
@@ -120,15 +121,15 @@ class ChartjsNode {
             }, imageType);
         });
     }
-     /**
-     * Returns image in the form of Data Url
-     *
-     * @param {String} imageType The image type name. Valid values are image/png image/jpeg
-     * @returns {Promise} A promise that resolves when the image is received in the form of data url
-     */
+    /**
+    * Returns image in the form of Data Url
+    *
+    * @param {String} imageType The image type name. Valid values are image/png image/jpeg
+    * @returns {Promise} A promise that resolves when the image is received in the form of data url
+    */
     getImageDataUrl(imageType) {
         return new BbPromise((resolve, reject) => {
-            this._canvas.toDataURL(imageType,(err, img) => {
+            this._canvas.toDataURL(imageType, (err, img) => {
                 if (err) {
                     return reject(err);
                 }
@@ -144,10 +145,10 @@ class ChartjsNode {
      */
     writeImageToFile(imageType, filePath) {
         return this.getImageBuffer(imageType)
-        .then(buffer => {
-            var out = fs.createWriteStream(filePath);
-            return out.write(buffer);
-        });
+            .then(buffer => {
+                var out = fs.createWriteStream(filePath);
+                return out.write(buffer);
+            });
     }
     /**
      * Destroys the virtual DOM and canvas -- releasing any native resources
@@ -170,4 +171,44 @@ class ChartjsNode {
         delete global.CanvasRenderingContext2D;
     }
 }
+var gradientFillPlugin = {
+    beforeInit: function (chartInstance) { },
+    afterInit: function (chartInstance) {
+        // check if there is a gradientFill properties 
+        if (chartInstance.config.options.gradientFill) {
+            var gradientFill = chartInstance.ctx.createLinearGradient(0, 0, 700, 0);
+            for (let index = 0; index < chartInstance.config.options.gradientFill.length; index++) {
+                gradientFill.addColorStop(index, `${chartInstance.config.options.gradientFill[index].color}`);
+            }
+            chartInstance.config.data.datasets[0].backgroundColor = gradientFill;
+        }
+    },
+
+    resize: function (chartInstance, newChartSize) { },
+
+    beforeUpdate: function (chartInstance) { },
+    afterScaleUpdate: function (chartInstance) { },
+    beforeDatasetsUpdate: function (chartInstance) { },
+    afterDatasetsUpdate: function (chartInstance) { },
+    afterUpdate: function (chartInstance) { },
+
+    // This is called at the start of a render. It is only called once, even if the animation will run for a number of frames. Use beforeDraw or afterDraw
+    // to do something on each animation frame
+    beforeRender: function (chartInstance) {
+
+    },
+
+    // Easing is for animation
+    beforeDraw: function (chartInstance, easing) { },
+    afterDraw: function (chartInstance, easing) { },
+
+    // Before the datasets are drawn but after scales are drawn
+    beforeDatasetsDraw: function (chartInstance, easing) { },
+    afterDatasetsDraw: function (chartInstance, easing) { },
+
+    destroy: function (chartInstance) { }
+};
+
+
+
 module.exports = ChartjsNode;
